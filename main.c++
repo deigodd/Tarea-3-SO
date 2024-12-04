@@ -67,10 +67,10 @@ void printMemoryState()
     cout << "\nEstado actual de la memoria:\n";
     cout << "RAM (usadas: " << usedPagesRAM << "/" << totalPagesRAM << "): ";
     for (const auto &page : ram)
-        cout << "P" << page.processID << ":" << page.pageNumber + 1 << " ";
+        cout << "P" << page.processID << ":" << page.pageNumber << " ";
     cout << "\nSwap (usadas: " << usedPagesSwap << "/" << totalPagesSwap << "): ";
     for (const auto &page : swapSpace)
-        cout << "P" << page.processID << ":" << page.pageNumber + 1<< " ";
+        cout << "P" << page.processID << ":" << page.pageNumber << " ";
     cout << "\n";
 }
 
@@ -185,23 +185,17 @@ void simulateVirtualAddressAccess()
 
     if (!page.inRAM)
     {
-        cout << "Page fault! La página P" << page.processID << ":" << page.pageNumber << " no está en RAM.\n";
-        cout << "Realizando swap...\n";
+        cout << "Page fault! Realizando swap...\n";
 
         if (usedPagesRAM == totalPagesRAM)
         {
-            // Política FIFO: remover la primera página en RAM
             Page evictedPage = ram[0];
-            cout << "Reemplazando página P" << evictedPage.processID
-                 << ":" << evictedPage.pageNumber << " de RAM a Swap.\n";
-
             ram.erase(ram.begin());
             swapSpace.push_back(evictedPage);
             usedPagesRAM--;
             usedPagesSwap++;
         }
 
-        // Mover la página requerida de Swap a RAM
         page.inRAM = true;
         ram.push_back(page);
 
@@ -214,13 +208,11 @@ void simulateVirtualAddressAccess()
                 break;
             }
         }
-        usedPagesRAM++;
-        cout << "Página P" << page.processID << ":" << page.pageNumber << " movida de Swap a RAM.\n";
     }
     printMemoryState();
 }
 
-// Bucle principal ajustado para cumplir con los eventos periódicos
+// Función principal
 int main()
 {
     cout << "#---------- PAGINACIÓN ----------#\n";
@@ -235,7 +227,7 @@ int main()
     {
         cout << "Ingresa el tamaño de las páginas (en MB): ";
         cin >> pageSize;
-    } while (pageSize <= 0 || pageSize > physicalMemorySize);
+    } while (pageSize <= 0);
 
     initializeMemory();
 
@@ -248,22 +240,12 @@ int main()
 
         if (currentTime - startTime >= 30)
         {
-            // Ejecutar ambos eventos cada 5 segundos
-            static int eventCounter = 0;
-            if (eventCounter % 2 == 0)
-            {
-                removeRandomProcess(); // Eliminar un proceso aleatorio
-            }
-            else
-            {
-                simulateVirtualAddressAccess(); // Acceder a una dirección virtual
-            }
-            eventCounter++;
-            sleep(5); // Esperar 5 segundos entre eventos
+            removeRandomProcess();
+            simulateVirtualAddressAccess();
+            sleep(5);
         }
         else
         {
-            // Crear procesos cada 2 segundos
             int processSize = rand() % (maxProcessSize - minProcessSize + 1) + minProcessSize;
             createProcess(processID++, processSize, startTime);
             sleep(2);
