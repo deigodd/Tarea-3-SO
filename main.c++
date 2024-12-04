@@ -45,10 +45,10 @@ public:
 };
 
 // Variables globales configurables
-int physicalMemorySize;   // En MB
-double virtualMemorySize; // En MB
-int pageSize;             // En MB
-const int minProcessSize = 2; // Tamaño mínimo de los procesos en MB
+int physicalMemorySize;        // En MB
+double virtualMemorySize;      // En MB
+int pageSize;                  // En MB
+const int minProcessSize = 2;  // Tamaño mínimo de los procesos en MB
 const int maxProcessSize = 10; // Tamaño máximo de los procesos en MB
 
 // Variables de memoria
@@ -77,16 +77,16 @@ void printMemoryState()
 // Inicialización de la memoria
 void initializeMemory()
 {
-    srand(time(0));
+    srand(time(nullptr));
     double factors[] = {1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5};
     double factor = factors[rand() % 7];
     virtualMemorySize = physicalMemorySize * factor;
 
     totalPagesRAM = physicalMemorySize / pageSize;
-    totalPagesSwap = (virtualMemorySize / pageSize) - totalPagesRAM;
+    totalPagesSwap = virtualMemorySize / pageSize;
 
     cout << "\nMemoria física: " << physicalMemorySize << " MB\n";
-    cout << "Memoria virtual: " << virtualMemorySize << " MB\n";
+    cout << "Memoria virtual: " << virtualMemorySize << " MB," << " factor de multiplicación: " << factor << "\n";
     cout << "Tamaño de las páginas: " << pageSize << " MB\n";
     cout << "Páginas en RAM: " << totalPagesRAM << ", en Swap: " << totalPagesSwap << endl;
 }
@@ -100,28 +100,33 @@ void createProcess(int processID, int processSize, time_t startTime)
 
     Process process(processID, processSize, requiredPages);
 
-    for (int i = 0; i < requiredPages; i++)
+    bool canFitInRAM = (totalPagesRAM - usedPagesRAM) >= requiredPages;
+
+    if (canFitInRAM)
     {
-        if (usedPagesRAM < totalPagesRAM)
+        for (int i = 0; i < requiredPages; i++)
         {
             ram.push_back(Page(processID, i, true));
             usedPagesRAM++;
+            process.addPage(Page(processID, i, true));
         }
-        else if (usedPagesSwap < totalPagesSwap)
+    }
+    else if ((totalPagesSwap - usedPagesSwap) >= requiredPages)
+    {
+        for (int i = 0; i < requiredPages; i++)
         {
             swapSpace.push_back(Page(processID, i, false));
             usedPagesSwap++;
             if (time(nullptr) - startTime <= 30)
                 cout << "¡Swap realizado! Página " << i + 1 << " del proceso " << processID << " movida a Swap.\n";
+            process.addPage(Page(processID, i, false));
         }
-        else
-        {
-            cout << "Memoria insuficiente. Terminando simulación.\n";
-            exit(0);
-        }
-        process.addPage(Page(processID, i, usedPagesRAM < totalPagesRAM));
     }
-
+    else
+    {
+        cout << "Memoria insuficiente. Terminando simulación.\n";
+        exit(0);
+    }
     processes.push_back(process);
     printMemoryState();
 }
@@ -172,7 +177,9 @@ void removeRandomProcess()
 void simulateVirtualAddressAccess()
 {
     if (processes.empty())
+    {
         return;
+    }
 
     int processIndex = rand() % processes.size();
     Process &process = processes[processIndex];
@@ -230,6 +237,7 @@ int main()
     } while (pageSize <= 0);
 
     initializeMemory();
+    cout << "#---------- PAGINACIÓN ----------#\n";
 
     int processID = 1;
     time_t startTime = time(nullptr);
@@ -240,12 +248,17 @@ int main()
 
         if (currentTime - startTime >= 30)
         {
+            cout << "#---------- Segunda etapa ----------#\n";
+            cout << "#---------- BUSCANDO PROCESO A ELIMINAR ----------#\n";
             removeRandomProcess();
+            sleep(2);
+            cout << "#---------- SIMULANDO ACCESO A MEMORIA VIRTUAL ----------#\n";
             simulateVirtualAddressAccess();
             sleep(5);
         }
         else
         {
+            cout << "#---------- Creación de proceso ----------#\n";
             int processSize = rand() % (maxProcessSize - minProcessSize + 1) + minProcessSize;
             createProcess(processID++, processSize, startTime);
             sleep(2);
