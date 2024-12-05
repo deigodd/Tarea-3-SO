@@ -104,34 +104,31 @@ void createProcess(int processID, int processSize, time_t startTime)
 
     Process process(processID, processSize, requiredPages);
 
-    // verify si cabe en la RAM
-    bool fitRAM = (totalPagesRAM - usedPagesRAM) >= requiredPages;
-
-    if (fitRAM)
+    for (int i = 0; i < requiredPages; i++)
     {
-        for (int i = 0; i < requiredPages; i++)
+        if (usedPagesRAM < totalPagesRAM)
         {
             ram.push_back(Page(processID, i, true));
             usedPagesRAM++;
-            process.addPage(Page(processID, i, true));
         }
-    }
-    else if ((totalPagesSwap - usedPagesSwap) >= requiredPages)
-    {
-        for (int i = 0; i < requiredPages; i++)
+        else if (usedPagesSwap < totalPagesSwap)
         {
             swapSpace.push_back(Page(processID, i, false));
             usedPagesSwap++;
+            // Mostrar mensaje de swap si estamos en los primeros 30 segundos
             if (time(nullptr) - startTime <= 30)
+            {
                 cout << "¡Swap realizado! Página " << i + 1 << " del proceso " << processID << " movida a Swap.\n";
-            process.addPage(Page(processID, i, false));
+            }
         }
+        else
+        {
+            cout << "Memoria insuficiente. Terminando simulación.\n";
+            exit(0);
+        }
+        process.addPage(Page(processID, i, usedPagesRAM < totalPagesRAM));
     }
-    else
-    {
-        cout << "Memoria insuficiente. Terminando simulación.\n"; // -> rubrica
-        exit(0);
-    }
+
     processes.push_back(process);
     printMemoryState();
 }
